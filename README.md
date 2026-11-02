@@ -1,7 +1,7 @@
 # Greedy Adventures — Sea View Skydiving
 
-> **WORK IN PROGRESS · PRIVATE REVIEW CHECKPOINT**
-> Saved for continued iteration. Not approved for shipping, public release or assignment submission.
+> **WORK IN PROGRESS · PUBLIC SOURCE CHECKPOINT**
+> Saved for continued iteration. Source is public; not approved for deployment, a production release or assignment submission.
 > No automatic deployment is configured.
 
 A source-grounded hiring-assignment prototype: an editorial skydiving experience, a short randomized GSAP ocean/sky/tide transition, and an assistant-ui concierge backed by Python.
