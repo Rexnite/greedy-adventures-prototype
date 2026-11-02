@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-11-02",
+  "assets": [
+    {
+      "id": "pov-sky",
+      "path": "/media/pov-sky.webp",
+      "kind": "original generated photographic-style environment",
+      "official": false,
+      "use": "illustrative skydiving camera transition"
+    },
+    {
+      "id": "pov-ocean",
+      "path": "/media/pov-ocean.webp",
+      "kind": "original generated photographic-style environment",
+      "official": false,
+      "use": "illustrative underwater camera transition, not a company offering"
+    }
+  ]
+}
