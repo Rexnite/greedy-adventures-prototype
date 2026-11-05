@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from pydantic import BaseModel, ConfigDict, Field
 
 from .intent import classify, contextual_query
@@ -64,7 +64,7 @@ def inspect(q: Query):
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(q: Query):
+async def chat(q: Query, x_gemini_api_key: str | None = Header(default=None, max_length=256, pattern=r"^[A-Za-z0-9_-]+$")):
     history, intent, media, found = route(q)
     if media:
         text = "Here " + (
@@ -81,7 +81,7 @@ async def chat(q: Query):
         text = "Would you like package information, a PDF brochure, or a video? If you mean both files, please say brochure and video."
         mode = "clarification"
     else:
-        text, mode = await answer(q.message, history, found)
+        text, mode = await answer(q.message, history, found, api_key=x_gemini_api_key)
     return {
         "text": text,
         "mode": mode,

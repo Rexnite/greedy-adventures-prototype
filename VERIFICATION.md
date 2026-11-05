@@ -1,5 +1,21 @@
 # Reproducible acceptance checks
 
+## Local Ollama revision — 5 November 2026
+
+The local example environment now selects Ollama with `qwen2.5:3b`; Gemini remains configurable via `AI_PROVIDER=gemini` and a server-only API key. Production build, lint and TypeScript pass; 38 backend tests and 22 desktop/mobile browser tests pass. Provider contracts include grounded passages, history, offline/empty/malformed response handling and media availability during model failure. Browser failure handling is intercepted explicitly, so the suite does not require disabling your working local model.
+
+Run `python scripts/check_live_model.py` for actual inference through the local frontend, including follow-up and missing-policy checks. This uses the currently configured provider and is separate from deterministic contract tests. CPU inference can be slow; the chat route allows a bounded wait. Vercel deployment is now authorized and complete; the invitation reply remains the owner's action.
+
+## Vercel and visitor-key revision — 5 November 2026
+
+Public production URL: https://greedy-adventures-puce.vercel.app . Next.js and FastAPI deployed as one Vercel Services project. Unauthenticated checks returned HTTP 200 for the page, knowledge page, health endpoint, source endpoint and real PDF. Inspector selected the actual brochure and film; chat returned both formats. Missing keys prompted setup; an invalid test key returned a clear Gemini access/quota error without exposing the key. No valid Gemini key was supplied, so successful Gemini inference remains unverified.
+
+40 backend checks pass, including two distinct visitor keys, absence of key persistence between requests, no key in model prompts or inspector, and invalid-key bounds. Desktop/mobile browser checks verify password masking, request-only transmission, clearing and no localStorage/sessionStorage persistence. Local Ollama remains available separately.
+
+24 Playwright/physics checks passed against the public production URL. A subsequent visual check found Vercel Services image-optimizer 404s; direct CDN delivery fixed them. The two largest photos were reduced from about 3.1 MB together to 462 KB, and a regression check now verifies loaded hero/package images. The final production build is checked again after this correction.
+
+Actual Ollama run through the frontend passed: VIP returned personal cameraman/edited film; “And the cheaper one?” correctly returned DELUXE with video/photos; cancellation returned “The cancellation policy is not provided.” Requests took approximately 40, 32 and 29 seconds respectively on this machine. These are genuine local-model responses; Gemini remains contract-tested only.
+
 Verified locally on 1 November 2026. No Gemini or Vercel credentials were supplied.
 
 | Check | Result |

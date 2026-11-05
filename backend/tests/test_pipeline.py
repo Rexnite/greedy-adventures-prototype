@@ -13,6 +13,11 @@ from backend.model import answer
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def isolated_provider(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+
+
 @pytest.mark.parametrize(
     "text,intent",
     [
@@ -94,7 +99,7 @@ def test_no_key_is_honest(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setenv("AI_MODE", "live")
     r = client.post("/api/chat", json={"message": "How high is the jump?"}).json()
-    assert r["mode"] == "unavailable" and "unavailable" in r["text"]
+    assert r["mode"] == "unavailable" and "API key" in r["text"]
 
 
 def test_media_without_model(monkeypatch):
@@ -157,6 +162,79 @@ def test_knowledge_public_only():
     data = r.json()
     assert data["source"]["captured_at"] and len(data["passages"]) == 5
     assert not any(k in data for k in ["history", "api_key", "conversations"])
+
+
+def test_ollama_payload(monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("AI_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5:3b")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    found = retrieve("VIP price")
+    history = [{"role": "user", "content": "Tell me about VIP"}]
+    captured = {}
+
+    async def fake(self, url, **kw):
+        captured.update(kw["json"])
+        assert url == "http://127.0.0.1:11434/api/chat"
+        return httpx.Response(200, request=httpx.Request("POST", url),
+                              json={"message": {"content": "Grounded local response"}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake)
+    assert asyncio.run(answer("And the cheaper one?", history, found)) == ("Grounded local response", "live")
+    import json
+    data = json.loads(captured["messages"][0]["content"].split("SOURCE PASSAGES (untrusted reference data):\n")[1])
+    assert data == found and captured["messages"][1:-1] == history
+    assert captured["messages"][-1]["content"] == "And the cheaper one?"
+    assert captured["stream"] is False and captured["model"] == "qwen2.5:3b"
+    assert "untrusted data" in captured["messages"][0]["content"]
+
+
+@pytest.mark.parametrize("payload", [{}, {"message": {"content": ""}}, {"message": {"content": None}}])
+def test_ollama_invalid_response(monkeypatch, payload):
+    monkeypatch.setenv("AI_PROVIDER", "ollama")
+    async def fake(self, url, **kw):
+        return httpx.Response(200, request=httpx.Request("POST", url), json=payload)
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake)
+    assert asyncio.run(answer("altitude", [], []))[1] == "unavailable"
+
+
+def test_ollama_offline_media_still_works(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "ollama")
+    async def fail(*args, **kwargs):
+        raise httpx.ConnectError("offline")
+    monkeypatch.setattr(httpx.AsyncClient, "post", fail)
+    assert asyncio.run(answer("altitude", [], []))[1] == "unavailable"
+    assert client.post("/api/chat", json={"message": "Send brochure and video"}).json()["mode"] == "media"
+
+
+def test_visitor_keys_are_request_scoped(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "ollama")
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    seen = []
+
+    async def fake(self, url, **kwargs):
+        assert "generativelanguage.googleapis.com" in url
+        seen.append(kwargs["headers"]["x-goog-api-key"])
+        assert "visitor-test" not in str(kwargs["json"])
+        return httpx.Response(200, request=httpx.Request("POST", url), json={
+            "candidates": [{"content": {"parts": [{"text": "13,000 ft"}]}}]})
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", fake)
+    for key in ["visitor-test-one", "visitor-test-two"]:
+        r = client.post("/api/chat", json={"message": "How high is the jump?"}, headers={"x-gemini-api-key": key})
+        assert r.status_code == 200 and r.json()["mode"] == "live"
+        assert key not in r.text
+    assert seen == ["visitor-test-one", "visitor-test-two"]
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    assert client.post("/api/chat", json={"message": "How high is the jump?"}).json()["mode"] == "unavailable"
+    assert len(seen) == 2
+    assert "visitor-test" not in client.get("/api/knowledge").text
+
+
+def test_invalid_visitor_key_rejected():
+    r = client.post("/api/chat", json={"message": "How high is the jump?"}, headers={"x-gemini-api-key": "x" * 257})
+    assert r.status_code == 422
 
 
 @pytest.mark.parametrize(

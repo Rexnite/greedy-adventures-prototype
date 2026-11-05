@@ -1,16 +1,21 @@
 # Greedy Adventures — Sea View Skydiving
 
-> **WORK IN PROGRESS · PUBLIC SOURCE CHECKPOINT**
-> Saved for continued iteration. Source is public; not approved for deployment, a production release or assignment submission.
-> No automatic deployment is configured.
+> **PUBLIC ASSIGNMENT PROTOTYPE**
+> Deployment authorized on 5 November 2026. No automatic Git deployment is configured.
+
+**Live demo:** https://greedy-adventures-puce.vercel.app
+
+**Reviewer quick start:** open the concierge and request a brochure, video or both without a key. For AI answers, expand “Use your own Gemini API key” and enter a key from Google AI Studio. The hosted demo intentionally has no owner-funded model key. Visitor keys stay in tab memory and are sent through the application server to Google per request; this app does not persist them. Refresh or “Clear key” removes the key. Your Google account's quota/charges apply. For key-free local inference, run Ollama as described below.
 
 A source-grounded hiring-assignment prototype: an editorial skydiving experience, a short randomized GSAP ocean/sky/tide transition, and an assistant-ui concierge backed by Python.
 
-**Status:** local production build and browser checks pass. Live Gemini answers require a valid Gemini API key and approved free-tier access. No live model request or Vercel deployment has been performed. Media requests work without a model key. This is an assignment prototype, not an official Greedy Adventures site.
+**Status:** Next.js and FastAPI are deployed together on Vercel Services. Local Ollama supports real AI answers without an API key; hosted AI uses the visitor's Gemini key. Media requests work independently of the model. This is an assignment prototype, not an official Greedy Adventures site.
 
 ## Run locally
 
 Requirements: Node 22+, Python 3.11+.
+
+For local AI, start Ollama with `qwen2.5:3b` installed (`ollama pull qwen2.5:3b` if needed). The example environment selects Ollama. Its first response can take longer while loading the model.
 
 ```powershell
 npm ci
@@ -40,12 +45,15 @@ For production locally: `npm run build`, then `npm run start`, with the Python s
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `AI_PROVIDER` | `ollama` in example configuration | Choose `ollama` locally or `gemini` for the hosted API. Unset defaults to Gemini for compatibility. |
+| `OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Server-only local Ollama origin. |
+| `OLLAMA_MODEL` | `qwen2.5:3b` | Installed local model name. |
 | `GEMINI_API_KEY` | empty | Server-only Google AI Studio key. Never use a NEXT_PUBLIC key. |
 | `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Configurable stable model; verify availability for your account. |
-| `AI_MODE` | `live` | `live` calls Gemini; `mock` returns visibly labelled source excerpts for local testing only. |
+| `AI_MODE` | `live` | `live` calls the configured provider; `mock` returns visibly labelled source excerpts for local testing only. |
 | `BACKEND_URL` | `http://127.0.0.1:8000` | Next.js server-side proxy target. Set this to the hosted Python backend when deploying separately. |
 
-No key means an explicit unavailable response, not a simulated AI answer. Network failures and empty/blocked responses also report unavailability. No paid request was made. Configure a free-tier project before running live tests; the application cannot determine your account's billing tier.
+Ollama requires no API key. For Gemini, a missing key shows instructions to add a visitor key. Network failures and empty responses report unavailability. No paid request was made. Hosted configuration uses `AI_PROVIDER=gemini`; localhost Ollama cannot be reached from Vercel. No automatic paid-provider fallback occurs. A visitor key overrides the provider for that request only, without modifying server configuration or other visitors' sessions.
 
 ## Stack and structure
 
@@ -71,7 +79,9 @@ assistant-ui LocalRuntime (bounded in-memory conversation)
 - `components/concierge.tsx`: model adapter, assistant-ui state/composer/messages, media rendering.
 - `backend/intent.py`: normalization, synonyms, regexes, negation and contextual format routing.
 - `backend/knowledge.py`: meaningful source sections, stable passage IDs and BM25 ranking.
-- `backend/model.py`: server-side Gemini call, bounded context, explicit mock/error modes.
+- `backend/model.py`: server-side Ollama or Gemini calls, bounded context, explicit mock/error modes.
+- `app/api/chat/route.ts`: server-side chat forwarding with a bounded wait and request-scoped visitor keys.
+- `app/api/[...path]/route.ts`: server forwarding for the private Python knowledge service.
 - `backend/media.py`: deterministic multi-asset registry.
 - `backend/main.py`: validated API contracts, shared routing used by chat and inspector.
 - `backend/data/`: versioned public source snapshot and asset provenance.
@@ -146,7 +156,7 @@ vercel deploy
 
 Use Vercel CLI 62.1 or newer and an authorized Vercel account. `deployment/vercel.json` declares separate Next.js and FastAPI service roots with a private backend binding. The preparation script copies application source, locked frontend dependencies and public assets into the correct layout; it excludes secrets, caches and installed dependencies. The Python entrypoint remains `backend.main:app`. The `BACKEND_URL` service binding lets the existing same-origin Next proxy reach Python. No database or paid integration is needed.
 
-Set `GEMINI_API_KEY`, `GEMINI_MODEL` and `AI_MODE=live` for the backend environment before validating a preview. Keep the key private and use approved free-tier access. Preview first; check the full acceptance list before promoting to production. **This configuration was prepared and locally packaged, but has not been deployed or verified in a Vercel account.** Vercel account authorization and Gemini credentials were unavailable.
+The hosted deployment uses `AI_PROVIDER=gemini`, `GEMINI_MODEL=gemini-3.5-flash-lite` and `AI_MODE=live`. The owner key is deliberately unset; visitors can supply their own request-scoped key. A server-only `GEMINI_API_KEY` remains optional for deployments that want to fund model access. Localhost Ollama is only available on your machine.
 
 Direct deployment of the repository root uses the simpler frontend-only `vercel.json`; it requires a separately hosted FastAPI origin supplied as `BACKEND_URL`. Use the generated Services package to deploy both together. The Python runtime is set to 3.12 in that package; local tests used Python 3.11.
 
@@ -160,7 +170,7 @@ After deployment, verify health, source loading, media links, chat requests, gen
 - The Sites, PDF and OpenAI Docs skills supported workflow, brochure verification and MCP configuration. This source deliverable remains portable Next.js/FastAPI.
 - Anton headline typeface: Google Fonts, bundled locally with its SIL Open Font License in `public/fonts/OFL-Anton.txt`.
 - AI coding assistance: Codex implemented and reviewed the prototype and ran the documented checks. No claims of human-authored implementation are made.
-- Live Gemini quality, real model follow-ups and Vercel hosting remain unverified without credentials. No public Vercel URL is available.
+- Real Ollama answers, contextual follow-ups and missing-information handling were verified locally. The public Vercel page, Python endpoints, media delivery and invalid/missing visitor-key handling were verified. Successful Gemini inference requires a visitor's valid key and remains unverified without one.
 - Official film is remote and may become unavailable; every video includes a labelled direct viewing link. Source/media status is a captured verification, not a continuous monitor.
 - The model can still err despite grounding instructions. Confirm operator policies and exact meeting location directly.
 - Browser tests emulate mobile in Chromium; physical devices, Safari and Firefox were not tested.

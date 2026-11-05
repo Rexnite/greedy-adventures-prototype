@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import {
   AssistantRuntimeProvider,
   useLocalRuntime,
@@ -32,7 +32,7 @@ type ResponseData = {
   citations: { id: string; title: string; url: string }[];
   trace: unknown;
 };
-const adapter: ChatModelAdapter = {
+const createAdapter = (apiKey: string): ChatModelAdapter => ({
   async run({ messages, abortSignal }) {
     const turns = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -47,7 +47,9 @@ const adapter: ChatModelAdapter = {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json",
+          ...(apiKey ? { "x-gemini-api-key": apiKey } : {}),
+        },
         body: JSON.stringify({
           message: turns.at(-1)?.content,
           history: turns.slice(0, -1).slice(-12),
@@ -77,7 +79,7 @@ const adapter: ChatModelAdapter = {
       };
     }
   },
-};
+});
 function AssistantMessage() {
   const result = useAuiState((s) => s.message.metadata.custom.response) as
     ResponseData | undefined;
@@ -182,6 +184,8 @@ export function Concierge({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const [apiKey, setApiKey] = useState("");
+  const adapter = useMemo(() => createAdapter(apiKey), [apiKey]);
   const runtime = useLocalRuntime(adapter);
   const panel = useRef<HTMLDivElement>(null),
     launcher = useRef<HTMLElement | null>(null),
@@ -231,6 +235,29 @@ export function Concierge({
         </div>
         <ThreadPrimitive.Root className="chat-thread">
           <ThreadPrimitive.Viewport className="chat-viewport">
+            <details className="chat-key-settings">
+              <summary>{apiKey ? "Gemini key added · manage" : "Use your own Gemini API key"}</summary>
+              <label htmlFor="visitor-gemini-key">Gemini API key</label>
+              <input
+                id="visitor-gemini-key"
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={256}
+                value={apiKey}
+                onChange={(event) => {
+                  const value = event.target.value.trim();
+                  setApiKey(value);
+                }}
+                placeholder="Paste your key for this tab"
+                aria-describedby="visitor-key-note"
+              />
+              <p id="visitor-key-note">Held only in this tab’s memory. Sent through our server to Google for answers; never saved by this app. Your Google quota and charges apply. Refresh or clear to remove.</p>
+              <div>
+                <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noreferrer">Get a Gemini key ↗</a>
+                <button type="button" disabled={!apiKey} onClick={() => setApiKey("")}>Clear key</button>
+              </div>
+            </details>
             <ThreadPrimitive.Empty>
               <div className="chat-welcome">
                 <Sparkles size={30} />
@@ -240,8 +267,8 @@ export function Concierge({
                   a brochure and video.
                 </p>
                 <small>
-                  AI answers require configured model access. Media requests
-                  work independently.
+                  On this hosted demo, bring your own Gemini key for AI answers.
+                  Brochures and videos need no key. Local runs can use Ollama.
                 </small>
               </div>
             </ThreadPrimitive.Empty>

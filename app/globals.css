@@ -1234,6 +1234,15 @@ footer button:hover {
   color: var(--muted);
   padding: 12px 0;
 }
+.chat-key-settings { margin-bottom: 20px; padding: 14px; border: 1px solid #425448; border-radius: 10px; font-size: 12px; }
+.chat-key-settings summary { cursor: pointer; font-weight: 600; }
+.chat-key-settings label { display: block; margin: 14px 0 7px; }
+.chat-key-settings input { width: 100%; box-sizing: border-box; padding: 12px; color: #f6f8f4; background: #15251c; border: 1px solid #687c6d; border-radius: 6px; }
+.chat-key-settings p { line-height: 1.6; color: #b9c7bb; }
+.chat-key-settings > div { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.chat-key-settings a { color: #d8fa44; }
+.chat-key-settings button { padding: 8px 12px; background: transparent; color: inherit; border: 1px solid #687c6d; border-radius: 6px; cursor: pointer; }
+.chat-key-settings button:disabled { opacity: .4; cursor: default; }
 .chat-composer {
   margin: 0 15px;
   display: flex;

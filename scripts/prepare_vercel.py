@@ -1,10 +1,16 @@
 """Create a clean two-service Vercel source package without secrets or dependencies."""
 
 import shutil
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TARGET = ROOT / "work/vercel"
+parser = argparse.ArgumentParser()
+parser.add_argument("--output", default="work/vercel")
+args = parser.parse_args()
+TARGET = (ROOT / args.output).resolve()
+if not TARGET.is_relative_to(ROOT / "work"):
+    raise SystemExit("Deployment staging must stay inside the project work directory.")
 if TARGET.exists():
     raise SystemExit(
         "work/vercel already exists. Inspect or move it before preparing again."

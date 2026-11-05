@@ -1,4 +1,35 @@
 import { test, expect } from "@playwright/test";
+
+test("visitor key is transient, request scoped and clearable", async ({ page }) => {
+  const received: (string | undefined)[] = [];
+  await page.route("**/api/chat", (route) => {
+    received.push(route.request().headers()["x-gemini-api-key"]);
+    expect(route.request().postData()).not.toContain("visitor-test-key");
+    return route.fulfill({ json: { text: "Test answer", mode: "live", media: [], citations: [], trace: {} } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: /Open adventure concierge/ }).click();
+  await page.getByText("Use your own Gemini API key", { exact: true }).click();
+  const key = page.getByLabel("Gemini API key", { exact: true });
+  await key.fill("visitor-test-key");
+  await expect(key).toHaveAttribute("type", "password");
+  const message = page.getByRole("textbox", { name: "Message the concierge" });
+  await message.fill("How high is the jump?");
+  await message.press("Enter");
+  await expect(page.getByText("Test answer", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Clear key" }).click();
+  await expect(key).toHaveValue("");
+  await message.fill("What about VIP?");
+  await message.press("Enter");
+  await expect(page.getByText("Test answer", { exact: true })).toHaveCount(2);
+  expect(received).toEqual(["visitor-test-key", undefined]);
+  expect(await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }))).not.toContain("visitor-test-key");
+  await key.fill("visitor-test-key");
+  await page.reload();
+  await page.getByRole("button", { name: /Open adventure concierge/ }).click();
+  await page.getByText("Use your own Gemini API key", { exact: true }).click();
+  await expect(page.getByLabel("Gemini API key", { exact: true })).toHaveValue("");
+});
 test("page, cinematic navigation and packages", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -6,6 +37,10 @@ test("page, cinematic navigation and packages", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "GO ALL IN",
   );
+  // Catch successful HTML responses whose CDN/optimizer image URLs are broken.
+  await expect.poll(() => page.locator(".hero img, #packages img").evaluateAll(
+    (images) => images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0),
+  )).toBe(true);
   const hero = await page.locator(".hero").boundingBox();
   const cta = await page
     .getByRole("link", { name: "Experience skydiving", exact: true })
@@ -59,6 +94,11 @@ test("brochure, video, both, memory and unavailable model", async ({
   await input.press("Enter");
   await expect(page.getByRole("link", { name: "Open PDF" })).toHaveCount(2);
   await expect(page.locator(".media-card video")).toHaveCount(2);
+  // Exercise the error UI independently of whichever live provider is configured.
+  await page.route("**/api/chat", (route) => route.fulfill({
+    json: { text: "The AI concierge is unavailable. Please try again shortly.",
+      mode: "unavailable", media: [], citations: [], trace: {} },
+  }));
   await input.fill("How high is the jump?");
   await input.press("Enter");
   await expect(page.locator(".chat-viewport")).toContainText(
